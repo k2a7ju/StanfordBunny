@@ -1,0 +1,241 @@
+package dragon;
+
+import javax.media.opengl.GL;
+import javax.media.opengl.GL2;
+import javax.media.opengl.glu.GLU;
+import com.jogamp.opengl.util.gl2.GLUT;
+
+import javax.media.opengl.awt.GLCanvas;
+import javax.media.opengl.GLAutoDrawable;
+import javax.media.opengl.GLCapabilities;
+import javax.media.opengl.GLEventListener;
+import javax.media.opengl.GLProfile;
+
+import javax.swing.JFrame;
+import java.nio.FloatBuffer;
+
+/**
+ * JOGL（Java bindings for OpenGL）の例題プログラムである。<br>
+ * OpenGLを使ったJavaによる三次元グラフィックスの初歩的な練習になる。<br>
+ */
+public class Example extends Object implements GLEventListener
+{
+	/**
+	 * GLオブジェクトを記憶するフィールドである。<br>
+	 */
+	protected GL2 gl;
+
+	/**
+	 * GLユーティリティを記憶するフィールドである。<br>
+	 */
+	protected GLU glu;
+
+	/**
+	 * GLユーティリティツールキットを記憶するフィールドである。<br>
+	 */
+	protected GLUT glut;
+
+	/**
+	 * ビューの幅を記憶するフィールドである。<br>
+	 */
+	protected int width;
+
+	/**
+	 * ビューの高さを記憶するフィールドである。<br>
+	 */
+	protected int height;
+
+	/**
+	 * 描画オブジェクトを記憶するフィールドである。<br>
+	 */
+	protected Dragon displayObject;
+
+	/**
+	 * Exampleのコンストラクタである。<br>
+	 */
+	public Example()
+	{
+		// System.out.println("Example");
+
+		// ドラゴンのインスタンスを生成する。
+		this.displayObject = new Dragon();
+		
+		// OpenGL描画のためのキャンバスを生成する。
+		GLProfile profile = GLProfile.get(GLProfile.GL2);
+		GLCapabilities capabilities = new GLCapabilities(profile);
+		capabilities.setDoubleBuffered(true);
+		GLCanvas aCanvas = new GLCanvas(capabilities);
+		aCanvas.addGLEventListener(this);
+
+		// フレームを生成し、上記のキャンバスを乗せて、ウィンドウとして開く。
+		JFrame aFrame = new JFrame(this.displayObject.windowTitle());
+		aFrame.add(aCanvas);
+		aFrame.addNotify();
+		int titleBarHeight = aFrame.getInsets().top;
+		aFrame.setSize(400, 400 + titleBarHeight);
+		aFrame.setLocationRelativeTo(null);
+		aFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+		aFrame.setFocusable(false);
+		aFrame.setVisible(true);
+
+		return;
+	}
+
+	/**
+	 * OpenGL起動時に初期化のために呼び出される。<br>
+	 * @param aDrawable OpenGLの描画ダーゲット
+	 */
+	public void init(GLAutoDrawable aDrawable)
+	{
+		// System.out.println("init");
+
+		// グラフィックライブラリ（gl）を獲得し、
+		// グラフィックライブラリユーティリティ（glu）と
+		// グラフィックライブラリユーティリティツールキット（glut）を生成する。
+		this.gl = aDrawable.getGL().getGL2();
+		this.glu = new GLU();
+		this.glut = new GLUT();
+
+		// 材質の有効化
+		// 陰線隠面処理の有効化
+		// 片面表示機能の無効化
+		// 法線ベクトルの有効化
+		this.gl.glEnable(GL2.GL_COLOR_MATERIAL);
+		this.gl.glEnable(GL2.GL_DEPTH_TEST);
+		this.gl.glDisable(GL2.GL_CULL_FACE);
+		this.gl.glEnable(GL2.GL_NORMALIZE);
+
+		return;
+	}
+	
+	/**
+	 * OpenGL描画を行う際に呼び出される。<br>
+	 * @param aDrawable OpenGLの描画ダーゲット
+	 */
+	public void display(GLAutoDrawable aDrawable)
+	{
+		// System.out.println("display");
+
+		// 視界（視点・注視点・上方向ベクトル・視界角・近・遠）をドラゴンから取得して整（設）える。
+		double[] eyePoint = this.displayObject.eyePoint();
+		double[] sightPoint = this.displayObject.sightPoint();
+		double[] upVector = this.displayObject.upVector();
+		double fovy = this.displayObject.fovy();
+		double near = this.displayObject.near();
+		double far = this.displayObject.far();
+
+		// キャンバス（ウィンドウ）の大きさからアスペクト比を求める。
+		double aspect = (double)width / (double)height;
+
+		// プロジェクション（遠近法）を設定する。
+		this.gl.glMatrixMode(GL2.GL_PROJECTION);
+		this.gl.glLoadIdentity();
+		this.glu.gluPerspective(fovy, aspect, near, far);
+
+		// 視界を設定する。
+		this.gl.glMatrixMode(GL2.GL_MODELVIEW);
+		this.gl.glLoadIdentity();
+		this.glu.gluLookAt(
+						   eyePoint[0], eyePoint[1], eyePoint[2],
+						   sightPoint[0], sightPoint[1], sightPoint[2],
+						   upVector[0], upVector[1], upVector[2]);
+
+		// キャンバスをクリアする。
+		this.gl.glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+		this.gl.glClear(GL2.GL_COLOR_BUFFER_BIT | GL2.GL_DEPTH_BUFFER_BIT);
+
+		// 照明を設定する。
+		this.gl.glEnable(GL2.GL_LIGHTING);
+		this.gl.glLightModelfv(GL2.GL_LIGHT_MODEL_AMBIENT, this.asFloatBuffer(new float[] { 0.5f, 0.5f, 0.5f, 1.0f }));
+		this.gl.glLightModelf(GL2.GL_LIGHT_MODEL_LOCAL_VIEWER, 0.0f);
+		this.gl.glLightModelf(GL2.GL_LIGHT_MODEL_TWO_SIDE, 1.0f);
+		this.gl.glEnable(GL2.GL_LIGHT0);
+		this.gl.glLightfv(GL2.GL_LIGHT0, GL2.GL_POSITION, this.asFloatBuffer(new float[] { 0.0f, 0.0f, 1.0f, 0.0f }));
+		this.gl.glLightfv(GL2.GL_LIGHT0, GL2.GL_SPOT_DIRECTION, this.asFloatBuffer(new float[] { 0.0f, 0.0f, -1.0f }));
+		this.gl.glLightfv(GL2.GL_LIGHT0, GL2.GL_SPOT_CUTOFF, this.asFloatBuffer(new float[] { 90.0f }));
+		this.gl.glLightfv(GL2.GL_LIGHT0, GL2.GL_DIFFUSE, this.asFloatBuffer(new float[] { 0.5f, 0.5f, 0.5f, 1.0f }));
+		this.gl.glLightfv(GL2.GL_LIGHT0, GL2.GL_SPECULAR, this.asFloatBuffer(new float[] { 0.5f, 0.5f, 0.5f, 1.0f }));
+		this.gl.glLightfv(GL2.GL_LIGHT0, GL2.GL_LINEAR_ATTENUATION, this.asFloatBuffer(new float[] { 0.0f }));
+		this.gl.glLightfv(GL2.GL_LIGHT0, GL2.GL_QUADRATIC_ATTENUATION, this.asFloatBuffer(new float[] { 0.0f }));
+		this.gl.glLightfv(GL2.GL_LIGHT0, GL2.GL_CONSTANT_ATTENUATION, this.asFloatBuffer(new float[] { 1.0f }));
+
+		// ドラゴンをレンダリング（描画）する。
+		this.displayObject.rendering(this.gl, this.glu, this.glut);
+
+		return;
+	}
+
+	/**
+	 * OpenGL表示モードや表示デバイスが変更された際に呼び出される。<br>
+	 * @param aDrawable OpenGLの描画ダーゲット
+	 * @param modeChanged 表示モードが変更されたか否か
+	 * @param deviceChanged 表示デバイスが変更されたか否か
+	 */
+	public void displayChanged(GLAutoDrawable aDrawable, boolean modeChanged, boolean deviceChanged)
+	{
+		// System.out.println("displayChanged");
+
+		return;
+	}
+	
+	/**
+	 * OpenGLの資源が破棄された際に呼び出される。<br>
+	 * @param aDrawable OpenGLの描画ダーゲット
+	 */
+	public void dispose(GLAutoDrawable aDrawable)
+	{
+		// System.out.println("dispose");
+
+		return;
+	}
+
+	/**
+	 * OpenGL表示領域が変更された際に呼び出される。<br>
+	 * @param aDrawable OpenGLの描画ダーゲット
+	 * @param x 表示領域のX座標
+	 * @param y 表示領域のY座標
+	 * @param w 表示領域の幅
+	 * @param h 表示領域の高さ
+	 */
+	public void reshape(GLAutoDrawable aDrawable, int x, int y, int w, int h)
+	{
+		// System.out.println("reshape");
+
+		this.width = w;
+		this.height = h;
+
+		this.gl.glViewport(0, 0, width, height);
+
+		return;
+	}
+
+	/**
+	 * float配列をfloatバッファに変換する。<br>
+	 * @param array float配列
+	 * @return floatバッファ
+	 */
+	private FloatBuffer asFloatBuffer(float[] array)
+	{
+		FloatBuffer buffer = FloatBuffer.allocate(array.length);
+		for (int i = 0; i < array.length; i++)
+		{
+			buffer.put(array[i]);
+		}
+		buffer.rewind();
+
+		return buffer;
+	}
+
+	/**
+	 * ドラゴンを描くOpenGLのウィンドウを開く。<br>
+	 * @param arguments コマンドの引数列（文字列の配列）<br>
+	 */
+	public static void main(String[] arguments)
+	{
+		// System.out.println("main");
+
+		new Example();
+
+		return;
+	}
+}
